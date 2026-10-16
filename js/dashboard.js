@@ -1,8 +1,9 @@
 // ====================================================================
-// e-Care Manager & IT Dashboard Logic with Role-Based Controls
+// e-Care Manager & IT Dashboard Logic with Admin User Management
 // ====================================================================
 
 let allTickets = [];
+let allUsers = [];
 let currentSelectedTicket = null;
 let currentTab = "ALL";
 let currentUser = null;
@@ -12,31 +13,38 @@ document.addEventListener("DOMContentLoaded", () => {
   currentUser = Auth.protectPage(["LEAD_MANAGER", "IT_DEV"]);
   if (!currentUser) return;
 
-  // Sesuaikan tampilan awal jika user adalah IT Dev
   const roleInfoBanner = document.getElementById("roleInfoBanner");
   const roleSubheader = document.getElementById("roleSubheader");
+  const tabUsersBtn = document.getElementById("tabUsersBtn");
 
-  if (currentUser.role === "IT_DEV") {
+  // Jika Lead/Manager, tampilkan tombol tab "Kelola Pengguna"
+  if (currentUser.role === "LEAD_MANAGER") {
+    tabUsersBtn.style.display = "flex";
+    roleSubheader.textContent = "Lead & Manager Control Center";
+    roleInfoBanner.style.display = "block";
+    roleInfoBanner.style.background = "rgba(99, 102, 241, 0.15)";
+    roleInfoBanner.style.border = "1px solid rgba(99, 102, 241, 0.3)";
+    roleInfoBanner.style.color = "#a5b4fc";
+    roleInfoBanner.innerHTML = `👑 <strong>Mode Lead / Manager:</strong> Review keluhan dari Sales/Implementor, naikkan status ke <strong>READY TO DEV</strong>, atau kelola akun tim di tab <strong>Kelola Pengguna</strong>.`;
+  } else if (currentUser.role === "IT_DEV") {
     roleSubheader.textContent = "IT Engineer & Development Monitor";
     roleInfoBanner.style.display = "block";
     roleInfoBanner.style.background = "rgba(168, 85, 247, 0.15)";
     roleInfoBanner.style.border = "1px solid rgba(168, 85, 247, 0.3)";
     roleInfoBanner.style.color = "#c084fc";
     roleInfoBanner.innerHTML = `💻 <strong>Mode IT Engineer:</strong> Fokus pada antrean tiket berstatus <strong>READY TO DEV</strong> yang sudah disaring oleh Lead/Manager.`;
-    
-    // Otomatis aktifkan tab READY_TO_DEV untuk IT
     switchTab("READY_TO_DEV");
-  } else {
-    roleSubheader.textContent = "Lead & Manager Control Center";
-    roleInfoBanner.style.display = "block";
-    roleInfoBanner.style.background = "rgba(99, 102, 241, 0.15)";
-    roleInfoBanner.style.border = "1px solid rgba(99, 102, 241, 0.3)";
-    roleInfoBanner.style.color = "#a5b4fc";
-    roleInfoBanner.innerHTML = `👑 <strong>Mode Lead / Manager:</strong> Review keluhan dari Sales/Implementor dan naikkan statusnya ke <strong>READY TO DEV</strong> untuk ditangani tim IT.`;
   }
 
   // Event Listeners
-  document.getElementById("refreshBtn").addEventListener("click", loadDashboardData);
+  document.getElementById("refreshBtn").addEventListener("click", () => {
+    if (currentTab === "USERS") {
+      loadUsersData();
+    } else {
+      loadDashboardData();
+    }
+  });
+
   document.getElementById("searchInput").addEventListener("input", filterAndRenderTickets);
   document.getElementById("urgencyFilter").addEventListener("change", filterAndRenderTickets);
   document.getElementById("closeModalBtn").addEventListener("click", () => {
@@ -50,6 +58,16 @@ document.addEventListener("DOMContentLoaded", () => {
       switchTab(tab);
     });
   });
+
+  // Admin User Management Listeners
+  const addUserForm = document.getElementById("addUserForm");
+  if (addUserForm) {
+    addUserForm.addEventListener("submit", handleAddUserSubmit);
+  }
+  const refreshUsersBtn = document.getElementById("refreshUsersBtn");
+  if (refreshUsersBtn) {
+    refreshUsersBtn.addEventListener("click", loadUsersData);
+  }
 
   window.addEventListener("click", (e) => {
     const modal = document.getElementById("detailModal");
@@ -68,6 +86,19 @@ function switchTab(tabName) {
       btn.classList.remove("active");
     }
   });
+
+  const ticketsView = document.getElementById("ticketsViewSection");
+  const usersView = document.getElementById("usersViewSection");
+
+  if (tabName === "USERS") {
+    ticketsView.style.display = "none";
+    usersView.style.display = "block";
+    loadUsersData();
+    return;
+  } else {
+    ticketsView.style.display = "block";
+    usersView.style.display = "none";
+  }
 
   const heading = document.getElementById("tableHeadingTitle");
   if (tabName === "READY_TO_DEV") heading.textContent = "🚀 Antrean Tiket IT (Ready to Dev)";
@@ -171,19 +202,16 @@ function filterAndRenderTickets() {
   const filtered = allTickets.filter(t => {
     const status = (t.status || "OPEN").toUpperCase();
 
-    // Tab Filter
     if (currentTab === "READY_TO_DEV" && status !== "READY_TO_DEV" && status !== "IN_DEV") return false;
     if (currentTab === "OPEN" && status !== "OPEN") return false;
     if (currentTab === "RESOLVED" && status !== "RESOLVED") return false;
 
-    // Search filter
     const matchesSearch = 
       (t.ticketId && t.ticketId.toLowerCase().includes(searchVal)) ||
       (t.customerName && t.customerName.toLowerCase().includes(searchVal)) ||
       (t.reporterName && t.reporterName.toLowerCase().includes(searchVal)) ||
       (t.summary && t.summary.toLowerCase().includes(searchVal));
 
-    // Urgency filter
     const matchesUrgency = !urgencyVal || (t.urgency && t.urgency.toUpperCase() === urgencyVal);
 
     return matchesSearch && matchesUrgency;
@@ -200,7 +228,7 @@ function filterAndRenderTickets() {
     return;
   }
 
-  tableBody.innerHTML = filtered.map((t, idx) => {
+  tableBody.innerHTML = filtered.map((t) => {
     const priority = (t.priority || "MEDIUM").toUpperCase();
     const urgency = (t.urgency || "NORMAL").toUpperCase();
     const status = (t.status || "OPEN").toUpperCase();
@@ -259,7 +287,7 @@ function filterAndRenderTickets() {
 }
 
 /**
- * Buka Modal Detail Tiket & Tombol Role Aksi
+ * Modal Detail Tiket & Tombol Aksi
  */
 window.openDetailModal = function(ticketId) {
   const ticket = allTickets.find(t => t.ticketId === ticketId);
@@ -290,15 +318,10 @@ window.openDetailModal = function(ticketId) {
   document.getElementById("modalAiAction").textContent = ticket.suggestedAction || "-";
   document.getElementById("modalDevNotes").value = ticket.devNotes || "";
 
-  // Render Action Buttons sesuai Role Pengguna
   renderRoleActionButtons(ticket);
-
   document.getElementById("detailModal").style.display = "flex";
 };
 
-/**
- * Render Tombol Aksi Berdasarkan Siapa yang Sedang Login
- */
 function renderRoleActionButtons(ticket) {
   const container = document.getElementById("modalActionControls");
   container.innerHTML = "";
@@ -306,7 +329,6 @@ function renderRoleActionButtons(ticket) {
   const role = currentUser.role;
   const status = (ticket.status || "OPEN").toUpperCase();
 
-  // 1. TAMPILAN UNTUK LEAD / MANAGER
   if (role === "LEAD_MANAGER") {
     if (status !== "READY_TO_DEV") {
       const btnReady = document.createElement("button");
@@ -331,7 +353,6 @@ function renderRoleActionButtons(ticket) {
     }
   }
 
-  // 2. TAMPILAN UNTUK IT / DEV
   if (role === "IT_DEV") {
     if (status === "READY_TO_DEV") {
       const btnInDev = document.createElement("button");
@@ -359,12 +380,8 @@ function renderRoleActionButtons(ticket) {
   }
 }
 
-/**
- * Kirim Perubahan Status ke GAS Backend
- */
 async function submitStatusChange(newStatus) {
   if (!currentSelectedTicket) return;
-
   const devNotes = document.getElementById("modalDevNotes").value.trim();
 
   try {
@@ -382,7 +399,7 @@ async function submitStatusChange(newStatus) {
 
     const result = await response.json();
     if (result.success) {
-      alert(`✅ Berhasil! Status tiket ${currentSelectedTicket.ticketId} diubah menjadi ${newStatus}.`);
+      alert(`✅ Berhasil! Status tiket diubah menjadi ${newStatus}.`);
       document.getElementById("detailModal").style.display = "none";
       loadDashboardData();
     } else {
@@ -392,6 +409,170 @@ async function submitStatusChange(newStatus) {
     alert("❌ Gagal update: " + err.message);
   }
 }
+
+// ====================================================================
+// MODUL ADMIN: KELOLA PENGGUNA (USERS)
+// ====================================================================
+
+/**
+ * Ambil data semua user dari Google Sheets
+ */
+async function loadUsersData() {
+  const tableBody = document.getElementById("usersTableBody");
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted);">
+        <div class="spinner" style="margin-bottom: 8px;"></div>
+        <div>Memuat daftar pengguna...</div>
+      </td>
+    </tr>
+  `;
+
+  try {
+    const url = CONFIG.GAS_API_URL + (CONFIG.GAS_API_URL.includes("?") ? "&" : "?") + "action=get_users";
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (result.success) {
+      allUsers = result.data || [];
+      renderUsersTable(allUsers);
+    } else {
+      throw new Error(result.error || "Gagal mengambil data user");
+    }
+  } catch (err) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; padding: 20px; color: #f87171;">
+          ❌ Gagal memuat user: ${err.message}
+        </td>
+      </tr>
+    `;
+  }
+}
+
+function renderUsersTable(users) {
+  const tableBody = document.getElementById("usersTableBody");
+  if (!users || users.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted);">
+          Belum ada pengguna terdaftar.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = users.map(u => {
+    let roleBadge = "badge-low";
+    let roleLabel = u.role;
+
+    if (u.role === "LEAD_MANAGER") {
+      roleBadge = "badge-critical";
+      roleLabel = "👑 Lead / Manager";
+    } else if (u.role === "IT_DEV") {
+      roleBadge = "badge-high";
+      roleLabel = "💻 IT Engineer";
+    } else if (u.role === "IMPLEMENTOR") {
+      roleBadge = "badge-medium";
+      roleLabel = "🛠️ Implementor";
+    } else {
+      roleBadge = "badge-low";
+      roleLabel = "💼 Sales";
+    }
+
+    const isActive = u.status === "ACTIVE";
+    const statusBadge = isActive ? "badge-active" : "badge-inactive";
+    const toggleActionText = isActive ? "Nonaktifkan" : "Aktifkan";
+    const targetStatus = isActive ? "INACTIVE" : "ACTIVE";
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.name)}</strong></td>
+        <td><code>${escapeHtml(u.email)}</code></td>
+        <td><span class="badge ${roleBadge}">${roleLabel}</span></td>
+        <td><span class="badge ${statusBadge}">${u.status}</span></td>
+        <td>
+          <button class="btn-action" onclick="toggleUserStatus('${escapeHtml(u.email)}', '${targetStatus}')">
+            ${toggleActionText}
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+/**
+ * Handle Submit Tambah User Baru
+ */
+async function handleAddUserSubmit(e) {
+  e.preventDefault();
+
+  const name = document.getElementById("newUserName").value.trim();
+  const email = document.getElementById("newUserEmail").value.trim();
+  const password = document.getElementById("newUserPassword").value.trim();
+  const role = document.getElementById("newUserRole").value;
+
+  const btn = document.getElementById("btnAddUserSubmit");
+  const spinner = document.getElementById("addUserSpinner");
+
+  btn.disabled = true;
+  spinner.style.display = "inline-block";
+
+  try {
+    const response = await fetch(CONFIG.GAS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "add_user",
+        data: { name, email, password, role }
+      })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      alert(`🎉 ${result.message}`);
+      document.getElementById("addUserForm").reset();
+      loadUsersData(); // Refresh list user
+    } else {
+      alert(`⚠️ ${result.message || "Gagal menambah user."}`);
+    }
+  } catch (err) {
+    alert("❌ Terjadi kendala: " + err.message);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = "none";
+  }
+}
+
+/**
+ * Toggle Status User (ACTIVE <-> INACTIVE)
+ */
+window.toggleUserStatus = async function(email, newStatus) {
+  if (!confirm(`Yakin ingin mengubah status akun ${email} menjadi ${newStatus}?`)) return;
+
+  try {
+    const response = await fetch(CONFIG.GAS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "toggle_user_status",
+        email: email,
+        newStatus: newStatus
+      })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      alert("✅ " + result.message);
+      loadUsersData();
+    } else {
+      alert("⚠️ " + result.message);
+    }
+  } catch (err) {
+    alert("❌ Gagal update status akun: " + err.message);
+  }
+};
 
 function escapeHtml(str) {
   if (!str) return "";
