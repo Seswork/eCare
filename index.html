@@ -46,6 +46,21 @@
         Keluhan yang kamu input akan dianalisis otomatis oleh <strong>Gemini AI</strong> dan dikirim ke antrean Lead & Manager.
       </p>
 
+      <!-- 📦 Antrean Lokal (Outbox) jika AI sibuk / offline -->
+      <div id="outboxBanner" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-md); padding: 14px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span style="font-size: 13px; font-weight: 700; color: #fbbf24;">📦 Antrean Lokal HP (<span id="outboxCount">0</span> Tersimpan)</span>
+            <div style="font-size: 12px; color: #cbd5e1; margin-top: 2px;">
+              Layanan AI sedang sibuk saat pengiriman. Laporan tersimpan aman di HP & otomatis dicoba kirim setiap 3 menit.
+            </div>
+          </div>
+          <button type="button" id="btnRetryOutbox" class="btn-action" style="background: rgba(245, 158, 11, 0.25); border-color: #f59e0b; color: #fff;">
+            🔄 Kirim Ulang Sekarang
+          </button>
+        </div>
+      </div>
+
       <form id="complaintForm">
         <!-- Role Display (Auto sesuai Akun) -->
         <div class="form-group">
