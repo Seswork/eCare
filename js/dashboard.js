@@ -69,6 +69,12 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshUsersBtn.addEventListener("click", loadUsersData);
   }
 
+  // Tombol Simpan Kode Asana saja
+  const btnSaveAsanaOnly = document.getElementById("btnSaveAsanaOnly");
+  if (btnSaveAsanaOnly) {
+    btnSaveAsanaOnly.addEventListener("click", handleSaveAsanaOnly);
+  }
+
   window.addEventListener("click", (e) => {
     const modal = document.getElementById("detailModal");
     if (e.target === modal) modal.style.display = "none";
@@ -210,7 +216,8 @@ function filterAndRenderTickets() {
       (t.ticketId && t.ticketId.toLowerCase().includes(searchVal)) ||
       (t.customerName && t.customerName.toLowerCase().includes(searchVal)) ||
       (t.reporterName && t.reporterName.toLowerCase().includes(searchVal)) ||
-      (t.summary && t.summary.toLowerCase().includes(searchVal));
+      (t.summary && t.summary.toLowerCase().includes(searchVal)) ||
+      (t.asanaRef && t.asanaRef.toLowerCase().includes(searchVal));
 
     const matchesUrgency = !urgencyVal || (t.urgency && t.urgency.toUpperCase() === urgencyVal);
 
@@ -252,9 +259,28 @@ function filterAndRenderTickets() {
 
     const formattedDate = t.timestamp ? t.timestamp.toString().substring(0, 16) : "-";
 
+    let asanaBadgeHtml = "";
+    if (t.asanaRef) {
+      const asanaUrl = `https://app.asana.com/0/search?q=${encodeURIComponent(t.asanaRef)}`;
+      asanaBadgeHtml = `
+        <div style="margin-top: 5px;">
+          <a href="${asanaUrl}" target="_blank" rel="noopener noreferrer" 
+             class="badge" 
+             style="background: rgba(244, 63, 94, 0.15); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.35); font-size: 10px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px;"
+             title="Klik untuk langsung cari ${escapeHtml(t.asanaRef)} di Asana"
+             onclick="event.stopPropagation();">
+            <span>🔗 Asana: ${escapeHtml(t.asanaRef)} ↗</span>
+          </a>
+        </div>
+      `;
+    }
+
     return `
       <tr>
-        <td><span class="ticket-id">${escapeHtml(t.ticketId)}</span></td>
+        <td>
+          <span class="ticket-id">${escapeHtml(t.ticketId)}</span>
+          ${asanaBadgeHtml}
+        </td>
         <td style="white-space: nowrap; font-size: 11px; color: var(--text-muted);">${formattedDate}</td>
         <td><strong>${escapeHtml(t.customerName)}</strong></td>
         <td>
@@ -318,6 +344,10 @@ window.openDetailModal = function(ticketId) {
   document.getElementById("modalAiAction").textContent = ticket.suggestedAction || "-";
   document.getElementById("modalDevNotes").value = ticket.devNotes || "";
 
+  // Asana Info di Modal
+  document.getElementById("modalAsanaRef").value = ticket.asanaRef || "";
+  updateModalAsanaDisplay(ticket.asanaRef);
+
   renderRoleActionButtons(ticket);
   document.getElementById("detailModal").style.display = "flex";
 };
@@ -336,7 +366,17 @@ function renderRoleActionButtons(ticket) {
       btnReady.style.background = "linear-gradient(135deg, #a855f7, #6366f1)";
       btnReady.style.boxShadow = "none";
       btnReady.innerHTML = "🚀 Naikkan ke READY TO DEV";
-      btnReady.onclick = () => submitStatusChange("READY_TO_DEV");
+      btnReady.onclick = () => {
+        let asanaVal = document.getElementById("modalAsanaRef").value.trim();
+        if (!asanaVal) {
+          const promptInput = prompt("💡 Masukkan Nomor/Kode Tiket Asana (Contoh: ST277)\nAtau klik OK / kosongkan jika belum ada nomor Asana:", "");
+          if (promptInput !== null && promptInput.trim() !== "") {
+            asanaVal = promptInput.trim().toUpperCase();
+            document.getElementById("modalAsanaRef").value = asanaVal;
+          }
+        }
+        submitStatusChange("READY_TO_DEV");
+      };
       container.appendChild(btnReady);
     }
 
@@ -383,6 +423,7 @@ function renderRoleActionButtons(ticket) {
 async function submitStatusChange(newStatus) {
   if (!currentSelectedTicket) return;
   const devNotes = document.getElementById("modalDevNotes").value.trim();
+  const asanaRef = document.getElementById("modalAsanaRef").value.trim().toUpperCase();
 
   try {
     const response = await fetch(CONFIG.GAS_API_URL, {
@@ -393,7 +434,8 @@ async function submitStatusChange(newStatus) {
         ticketId: currentSelectedTicket.ticketId,
         newStatus: newStatus,
         updatedBy: `${currentUser.name} (${currentUser.role})`,
-        devNotes: devNotes
+        devNotes: devNotes,
+        asanaRef: asanaRef
       })
     });
 
@@ -407,6 +449,79 @@ async function submitStatusChange(newStatus) {
     }
   } catch (err) {
     alert("❌ Gagal update: " + err.message);
+  }
+}
+
+/**
+ * Update Box Display Asana di Modal
+ */
+function updateModalAsanaDisplay(asanaRef) {
+  const asanaBox = document.getElementById("modalAsanaDisplayBox");
+  const asanaBadge = document.getElementById("modalAsanaCodeBadge");
+  const asanaLink = document.getElementById("modalOpenAsanaLink");
+  const asanaCopyBtn = document.getElementById("modalCopyAsanaBtn");
+
+  if (asanaRef && asanaRef.trim()) {
+    const code = asanaRef.trim().toUpperCase();
+    asanaBox.style.display = "block";
+    asanaBadge.textContent = code;
+    asanaLink.href = `https://app.asana.com/0/search?q=${encodeURIComponent(code)}`;
+    asanaCopyBtn.onclick = () => {
+      navigator.clipboard.writeText(code).then(() => {
+        const origText = asanaCopyBtn.textContent;
+        asanaCopyBtn.textContent = "✅ Tersalin!";
+        setTimeout(() => { asanaCopyBtn.textContent = origText; }, 1500);
+      });
+    };
+  } else {
+    asanaBox.style.display = "none";
+  }
+}
+
+/**
+ * Simpan Kode Asana saja tanpa ubah status
+ */
+async function handleSaveAsanaOnly() {
+  if (!currentSelectedTicket) return;
+  const asanaCode = document.getElementById("modalAsanaRef").value.trim().toUpperCase();
+  const devNotes = document.getElementById("modalDevNotes").value.trim();
+  const btn = document.getElementById("btnSaveAsanaOnly");
+  const origText = btn.textContent;
+
+  btn.disabled = true;
+  btn.textContent = "Menyimpan...";
+
+  try {
+    const response = await fetch(CONFIG.GAS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "update_status",
+        ticketId: currentSelectedTicket.ticketId,
+        newStatus: currentSelectedTicket.status || "OPEN",
+        updatedBy: `${currentUser.name} (${currentUser.role})`,
+        devNotes: devNotes,
+        asanaRef: asanaCode
+      })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      currentSelectedTicket.asanaRef = asanaCode;
+      const matched = allTickets.find(t => t.ticketId === currentSelectedTicket.ticketId);
+      if (matched) matched.asanaRef = asanaCode;
+
+      updateModalAsanaDisplay(asanaCode);
+      filterAndRenderTickets();
+      alert(`✅ Kode Asana ${asanaCode ? '"' + asanaCode + '" ' : ''}berhasil disimpan!`);
+    } else {
+      throw new Error(result.error || "Gagal menyimpan kode Asana");
+    }
+  } catch (err) {
+    alert("❌ Gagal simpan kode Asana: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
   }
 }
 
