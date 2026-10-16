@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>e-Care - Dashboard & SLA Monitor</title>
+  
+  <meta name="theme-color" content="#090d16">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .tab-pills {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .tab-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .tab-pill.active {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .tab-badge {
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 99px;
+    }
+    .badge-ready_to_dev {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+    }
+    .badge-in_dev {
+      background: rgba(6, 182, 212, 0.2);
+      color: #22d3ee;
+      border: 1px solid rgba(6, 182, 212, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-container">
+    <!-- Header -->
+    <header class="header">
+      <a href="dashboard.html" class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-info">
+          <h1>e-Care Dashboard</h1>
+          <span id="roleSubheader">Manager & IT Control Center</span>
+        </div>
+      </a>
+      
+      <!-- Nav & User Section -->
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <nav class="nav-links">
+          <a href="index.html" class="nav-btn">📝 Form Input</a>
+          <a href="dashboard.html" class="nav-btn active">📊 Dashboard</a>
+          <button id="refreshBtn" class="nav-btn" style="cursor: pointer; background: rgba(99, 102, 241, 0.2); color: #fff;">🔄 Refresh</button>
+        </nav>
+        <div id="headerUserSection"></div>
+      </div>
+    </header>
+
+    <!-- Metrics KPI Cards -->
+    <section class="metrics-grid">
+      <div class="metric-card total">
+        <div class="metric-title">Total Keluhan</div>
+        <div id="statTotal" class="metric-value">0</div>
+      </div>
+      <div class="metric-card critical">
+        <div class="metric-title">🚨 Critical Urgency</div>
+        <div id="statCritical" class="metric-value" style="color: #f87171;">0</div>
+      </div>
+      <div class="metric-card" style="border-left: 4px solid #a855f7;">
+        <div class="metric-title">🚀 Ready to Dev</div>
+        <div id="statReadyToDev" class="metric-value" style="color: #c084fc;">0</div>
+      </div>
+      <div class="metric-card resolved">
+        <div class="metric-title">✅ Selesai (Resolved)</div>
+        <div id="statResolved" class="metric-value" style="color: #34d399;">0</div>
+      </div>
+    </section>
+
+    <!-- Role Notice Banner -->
+    <div id="roleInfoBanner" style="display: none; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; font-size: 13px;"></div>
+
+    <!-- Tab View Navigation -->
+    <div class="tab-pills">
+      <button class="tab-pill active" data-tab="ALL">
+        <span>📋 Semua Tiket</span>
+        <span class="tab-badge" id="tabCountAll">0</span>
+      </button>
+      <button class="tab-pill" data-tab="READY_TO_DEV">
+        <span>🚀 Antrean IT (Ready to Dev)</span>
+        <span class="tab-badge" id="tabCountReadyDev">0</span>
+      </button>
+      <button class="tab-pill" data-tab="OPEN">
+        <span>⏳ Tiket Baru (Perlu Review Lead)</span>
+        <span class="tab-badge" id="tabCountOpen">0</span>
+      </button>
+      <button class="tab-pill" data-tab="RESOLVED">
+        <span>✅ Selesai</span>
+        <span class="tab-badge" id="tabCountResolved">0</span>
+      </button>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="filter-bar">
+      <input type="text" id="searchInput" class="search-input" placeholder="🔍 Cari ID Tiket, Toko, Pelapor, atau Kata Kunci...">
+      
+      <select id="urgencyFilter" class="filter-select">
+        <option value="">Semua Urgensi</option>
+        <option value="CRITICAL">🚨 Critical Only</option>
+        <option value="NORMAL">Normal</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+
+    <!-- Tickets Table Card -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 15px; font-weight: 700; color: #fff;" id="tableHeadingTitle">Daftar Tiket Keluhan</h2>
+        <span id="ticketCountBadge" style="font-size: 12px; background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 99px;">
+          Memuat...
+        </span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>ID Tiket</th>
+              <th>Waktu</th>
+              <th>Customer / Toko</th>
+              <th>Pelapor</th>
+              <th>Prioritas & Urgensi</th>
+              <th>Ringkasan Masalah (AI)</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <div class="spinner" style="margin-bottom: 12px;"></div>
+                <div>Mengambil data dari Google Sheets...</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail & Action Modal -->
+  <div id="detailModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <span id="modalTicketId" class="ticket-id" style="font-size: 15px;">EC-000000-0000</span>
+          <h3 id="modalCustomer" style="font-size: 18px; color: #fff; margin-top: 4px;">Nama Toko</h3>
+        </div>
+        <button id="closeModalBtn" class="close-btn">&times;</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+        <span id="modalPriority" class="badge"></span>
+        <span id="modalUrgency" class="badge"></span>
+        <span id="modalStatus" class="badge"></span>
+      </div>
+
+      <div class="ai-detail-box">
+        <h4>Pelapor</h4>
+        <p id="modalReporterMeta" style="color: #cbd5e1;"></p>
+      </div>
+
+      <div class="ai-detail-box">
+        <h4>Keluhan Asli</h4>
+        <p id="modalOriginalDesc" style="color: #e2e8f0; white-space: pre-line;"></p>
+      </div>
+
+      <div class="ai-detail-box" style="border-left: 3px solid var(--accent-cyan);">
+        <h4>Analisis Gemini AI</h4>
+        <p id="modalAiSummary" style="color: #cbd5e1;"></p>
+      </div>
+
+      <div class="ai-detail-box" style="border-left: 3px solid var(--primary);">
+        <h4>Rekomendasi Tindakan</h4>
+        <p id="modalAiAction" style="color: #a5b4fc; font-weight: 600;"></p>
+      </div>
+
+      <div class="form-group" style="margin-top: 14px;">
+        <label for="modalDevNotes" class="form-label">Catatan Teknis / Log Perbaikan IT (Opsional)</label>
+        <textarea id="modalDevNotes" class="textarea-field" style="min-height: 70px;" placeholder="Tuliskan catatan pengerjaan, no PR git, atau keterangan perbaikan..."></textarea>
+      </div>
+
+      <!-- Action Buttons Area (Render dinamis sesuai Role) -->
+      <div id="modalActionControls" style="display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap;"></div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="bottom-tab">
+      <span>📝</span>
+      <span>Input Form</span>
+    </a>
+    <a href="dashboard.html" class="bottom-tab active">
+      <span>📊</span>
+      <span>Dashboard</span>
+    </a>
+  </nav>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

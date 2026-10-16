@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>e-Care - Masuk Akun</title>
+  
+  <meta name="theme-color" content="#090d16">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .login-wrapper {
+      min-height: 85vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .login-box {
+      max-width: 420px;
+      width: 100%;
+    }
+    .demo-accounts {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .demo-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+    }
+    .demo-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--primary);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-wrapper">
+    <div class="card login-box">
+      <!-- Brand -->
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div class="brand-icon" style="margin: 0 auto 12px auto; width: 48px; height: 48px; font-size: 24px;">⚡</div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; color: #fff;">e-Care Portal</h1>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Masuk sesuai peran & tanggung jawab tim</p>
+      </div>
+
+      <!-- Alert -->
+      <div id="loginAlert" style="display: none; padding: 12px; border-radius: var(--radius-sm); font-size: 12px; margin-bottom: 16px;"></div>
+
+      <!-- Form Login -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="emailInput" class="form-label">Email Akun</label>
+          <input type="email" id="emailInput" class="input-field" placeholder="nama@ecare.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="passInput" class="form-label">Kata Sandi / PIN</label>
+          <input type="password" id="passInput" class="input-field" placeholder="••••••" required>
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn-submit">
+          <span id="btnText">🔐 Masuk ke Sistem</span>
+          <span id="btnSpinner" class="spinner" style="display: none;"></span>
+        </button>
+      </form>
+
+      <!-- Quick Demo Login Buttons -->
+      <div class="demo-accounts">
+        <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Akun Percobaan (1 Klik)</span>
+        <div class="demo-grid">
+          <button class="demo-btn" onclick="fillDemo('sales@ecare.com', '123456')">
+            💼 <strong>Sales</strong><br><small>sales@ecare.com</small>
+          </button>
+          <button class="demo-btn" onclick="fillDemo('imple@ecare.com', '123456')">
+            🛠️ <strong>Implementor</strong><br><small>imple@ecare.com</small>
+          </button>
+          <button class="demo-btn" onclick="fillDemo('lead@ecare.com', '123456')">
+            👑 <strong>Lead / Manager</strong><br><small>lead@ecare.com</small>
+          </button>
+          <button class="demo-btn" onclick="fillDemo('it@ecare.com', '123456')">
+            💻 <strong>IT / Dev</strong><br><small>it@ecare.com</small>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Cek jika sudah login, langsung lempar
+    const existing = Auth.getUser();
+    if (existing) {
+      redirectByRole(existing.role);
+    }
+
+    function fillDemo(email, pass) {
+      document.getElementById("emailInput").value = email;
+      document.getElementById("passInput").value = pass;
+    }
+
+    function redirectByRole(role) {
+      if (role === "SALES" || role === "IMPLEMENTOR") {
+        window.location.href = "index.html";
+      } else {
+        window.location.href = "dashboard.html";
+      }
+    }
+
+    const loginForm = document.getElementById("loginForm");
+    const loginAlert = document.getElementById("loginAlert");
+    const loginBtn = document.getElementById("loginBtn");
+    const btnText = document.getElementById("btnText");
+    const btnSpinner = document.getElementById("btnSpinner");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!CONFIG.GAS_API_URL || CONFIG.GAS_API_URL.includes("MASUKKAN_URL_WEB_APP")) {
+        showAlert("⚠️ URL Web App belum disetel di js/config.js", false);
+        return;
+      }
+
+      const email = document.getElementById("emailInput").value.trim();
+      const password = document.getElementById("passInput").value.trim();
+
+      // Loading
+      loginBtn.disabled = true;
+      btnText.textContent = "Memverifikasi...";
+      btnSpinner.style.display = "inline-block";
+      loginAlert.style.display = "none";
+
+      try {
+        const response = await fetch(CONFIG.GAS_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "login",
+            email: email,
+            password: password
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.user) {
+          Auth.setUser(result.user);
+          showAlert(`Selamat datang, ${result.user.name}! Mengalihkan...`, true);
+          setTimeout(() => {
+            redirectByRole(result.user.role);
+          }, 800);
+        } else {
+          showAlert(result.message || "Gagal login. Periksa email & password.", false);
+        }
+      } catch (err) {
+        console.error("Login Error:", err);
+        showAlert("Gagal terhubung ke server: " + err.message, false);
+      } finally {
+        loginBtn.disabled = false;
+        btnText.textContent = "🔐 Masuk ke Sistem";
+        btnSpinner.style.display = "none";
+      }
+    });
+
+    function showAlert(msg, isSuccess) {
+      loginAlert.textContent = msg;
+      loginAlert.style.display = "block";
+      if (isSuccess) {
+        loginAlert.style.background = "rgba(16, 185, 129, 0.15)";
+        loginAlert.style.border = "1px solid rgba(16, 185, 129, 0.3)";
+        loginAlert.style.color = "#34d399";
+      } else {
+        loginAlert.style.background = "rgba(239, 68, 68, 0.15)";
+        loginAlert.style.border = "1px solid rgba(239, 68, 68, 0.3)";
+        loginAlert.style.color = "#f87171";
+      }
+    }
+  </script>
+</body>
+</html>
