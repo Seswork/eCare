@@ -309,6 +309,38 @@
         <p id="modalAiAction" style="color: #a5b4fc; font-weight: 600;"></p>
       </div>
 
+      <!-- Asana Ticket Reference Display Box -->
+      <div id="modalAsanaDisplayBox" class="ai-detail-box" style="display: none; border-left: 3px solid #f43f5e; background: rgba(244, 63, 94, 0.08);">
+        <h4 style="color: #fda4af; display: flex; align-items: center; gap: 6px;">
+          <span>🔗 Referensi Tiket Asana IT</span>
+        </h4>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+          <span id="modalAsanaCodeBadge" class="badge" style="background: rgba(244, 63, 94, 0.25); color: #fff; border: 1px solid rgba(244, 63, 94, 0.5); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; padding: 4px 10px;">
+            -
+          </span>
+          <button type="button" id="modalCopyAsanaBtn" class="btn-action" style="background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.2);">
+            📋 Copy Kode
+          </button>
+          <a id="modalOpenAsanaLink" href="#" target="_blank" rel="noopener noreferrer" class="btn-action" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.4);">
+            🔍 Cari di Asana ↗
+          </a>
+        </div>
+      </div>
+
+      <!-- Asana Ticket Reference Input Field -->
+      <div class="form-group" style="margin-top: 14px;">
+        <label for="modalAsanaRef" class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>📌 Kode Tiket Asana (Contoh: ST277)</span>
+          <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Opsional</span>
+        </label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="modalAsanaRef" class="input-field" placeholder="Masukkan kode Asana, contoh: ST277..." style="text-transform: uppercase;">
+          <button type="button" id="btnSaveAsanaOnly" class="btn-action" style="padding: 0 14px; white-space: nowrap; background: rgba(99, 102, 241, 0.25); color: #c7d2fe;">
+            💾 Simpan Kode
+          </button>
+        </div>
+      </div>
+
       <div class="form-group" style="margin-top: 14px;">
         <label for="modalDevNotes" class="form-label">Catatan Teknis / Log Perbaikan IT (Opsional)</label>
         <textarea id="modalDevNotes" class="textarea-field" style="min-height: 70px;" placeholder="Tuliskan catatan pengerjaan, no PR git, atau keterangan perbaikan..."></textarea>
